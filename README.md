@@ -2,6 +2,16 @@
 
 A TypeScript utility for elegant, type-safe error handling. It wraps your code in a `Result` type that makes error handling explicit and type-safe, eliminating the need for try-catch blocks while maintaining full type information.
 
+## Table of Contents
+- [Features](#features)
+- [Installation](#installation)
+- [Module Support](#module-support)
+- [Quick Start](#quick-start)
+- [Core Concepts](#core-concepts)
+- [Common Patterns](#common-patterns)
+- [Utility Functions](#utility-functions)
+- [Configuration Types](#configuration-types)
+
 ## Features
 
 - 🎯 **Type-Safe**: Full TypeScript support with discriminated unions and type guards
