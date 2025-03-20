@@ -338,41 +338,39 @@ if (isSuccess(result)) {
 
 ### Running Concurrent Operations (`concurrent`)
 
-Execute multiple operations with controlled concurrency:
+Execute multiple operations with controlled concurrency and type safety:
 
 ```typescript
-import { concurrent } from 'result-guard';
+interface User { id: number; name: string; }
+interface Post { id: number; title: string; }
+interface Stats { visits: number; }
 
-async function processUserBatch(userIds: string[]) {
-  const results = await concurrent(
-    // Map each userId to an async operation
-    userIds.map(id => async () => {
-      const response = await fetch(`/api/users/${id}`);
-      return response.json();
-    }),
-    {
-      maxConcurrent: 3, // Process 3 users at a time
-      timeout: 5000, // 5 second timeout per operation
-      stopOnError: false // Continue even if some operations fail
-    }
-  );
+const results = await concurrent([
+  async () => {
+    const response = await fetch('/api/users');
+    return response.json() as User[];
+  },
+  async () => {
+    const response = await fetch('/api/posts');
+    return response.json() as Post[];
+  },
+  async () => {
+    const response = await fetch('/api/stats');
+    return response.json() as Stats;
+  }
+], {
+  maxConcurrent: 3,
+  timeout: 5000
+});
 
-  // Process results
-  const processed = {
-    successful: [] as any[],
-    failed: [] as string[]
-  };
+// TypeScript knows the exact types of each result
+const [usersResult, postsResult, statsResult] = results;
 
-  results.forEach((result, index) => {
-    if (isSuccess(result)) {
-      processed.successful.push(result.data);
-    } else {
-      processed.failed.push(userIds[index]);
-    }
-  });
-
-  return processed;
-}
+return {
+  users: isSuccess(usersResult) ? usersResult.data : [], // User[]
+  posts: isSuccess(postsResult) ? postsResult.data : [], // Post[]
+  stats: isSuccess(statsResult) ? statsResult.data : null, // Stats
+};
 ```
 
 ## Configuration Types
