@@ -275,47 +275,83 @@ export function withCallbacks<T, E = Error>(
 
 /**
  * Safely executes multiple concurrent operations, ensuring all operations are
- * properly wrapped in tryCatch and handling partial failures.
+ * properly wrapped in tryCatch and handling partial failures. Each operation's
+ * exact return type is preserved in the result tuple.
  *
- * @template T The type of the successful result
- * @template E The type of the error (defaults to Error)
+ * @template Ops The tuple type of operations to execute
  * @param operations Array of operations to execute concurrently
  * @param options Configuration options for concurrency
- * @returns Array of Results, one for each operation
+ * @returns A tuple of Results, with each element preserving the exact type of its corresponding operation
  *
  * @example
  * ```typescript
- * const urls = ['https://api.example.com/1', 'https://api.example.com/2'];
+ * // Example with typed functions
+ * interface User { name: string; id: number }
+ * interface Post { title: string; content: string }
+ * 
+ * const getUser = async (): Promise<User> => ({ name: 'bob', id: 1 });
+ * const getPost = async (): Promise<Post> => ({ 
+ *   title: 'Hello',
+ *   content: 'World'
+ * });
+ * 
+ * const results = await concurrent([
+ *   getUser,
+ *   getPost
+ * ] as const);
+ * 
+ * const [userResult, postResult] = results;
+ * 
+ * if (!userResult.isError) {
+ *   const user = userResult.data; // TypeScript knows this is User
+ *   console.log(user.name, user.id);
+ * }
+ * 
+ * if (!postResult.isError) {
+ *   const post = postResult.data; // TypeScript knows this is Post
+ *   console.log(post.title, post.content);
+ * }
+ * 
+ * // Example with literal types
+ * const literalResults = await concurrent([
+ *   async () => 42 as const,
+ *   async () => 'hello' as const,
+ *   async () => ({ status: 'ok' as const })
+ * ] as const);
+ * 
+ * const [numResult, strResult, objResult] = literalResults;
+ * 
+ * if (!numResult.isError) {
+ *   const num = numResult.data; // Type is exactly 42
+ * }
+ * 
+ * if (!strResult.isError) {
+ *   const str = strResult.data; // Type is exactly 'hello'
+ * }
+ * 
+ * if (!objResult.isError) {
+ *   const obj = objResult.data; // Type is { status: 'ok' }
+ * }
+ * 
+ * // With concurrency options
  * const results = await concurrent(
- *   urls.map(url => async () => {
- *     const response = await fetch(url);
- *     return response.json();
- *   }),
+ *   [getUser, getPost],
  *   {
  *     timeout: 5000,
  *     maxConcurrent: 2,
  *     stopOnError: false
  *   }
  * );
- *
- * // Handle results individually
- * results.forEach((result, index) => {
- *   if (isSuccess(result)) {
- *     console.log(`URL ${index} succeeded:`, result.data);
- *   } else {
- *     console.error(`URL ${index} failed:`, result.error);
- *   }
- * });
  * ```
  */
-export async function concurrent<T, E = Error>(
-  operations: Array<() => Promise<T>>,
+export async function concurrent<Ops extends readonly (() => Promise<any>)[]>(
+  operations: Ops,
   options: ConcurrentOptions = {},
-): Promise<Result<T, E>[]> {
+): Promise<{ [P in keyof Ops]: Result<Awaited<ReturnType<Ops[P]>>, Error> }> {
   const { maxConcurrent = Infinity, timeout, stopOnError = false } = options;
 
-  const executeOperation = (op: () => Promise<T>) => {
-    return tryCatch<T, E>(async () => {
+  const executeOperation = <T>(op: () => Promise<T>) => {
+    return tryCatch<T, Error>(async () => {
       const promise = op();
       return timeout
         ? await raceWithTimeout(promise, timeout, 'Operation timed out')
@@ -328,14 +364,14 @@ export async function concurrent<T, E = Error>(
     const results = await Promise.all(operations.map(executeOperation));
 
     if (stopOnError && results.some((r) => r.isError)) {
-      return [results.find((r) => r.isError)!];
+      return [results.find((r) => r.isError)!] as any;
     }
 
-    return results;
+    return results as any;
   }
 
   // Process in chunks for limited concurrency
-  const results: Result<T, E>[] = [];
+  const results: Result<any, Error>[] = [];
   for (let i = 0; i < operations.length; i += maxConcurrent) {
     const chunk = operations.slice(i, i + maxConcurrent);
     const chunkResults = await Promise.all(chunk.map(executeOperation));
@@ -343,9 +379,9 @@ export async function concurrent<T, E = Error>(
     results.push(...chunkResults);
 
     if (stopOnError && chunkResults.some((result) => result.isError)) {
-      return [chunkResults.find((r) => r.isError)!];
+      return [chunkResults.find((r) => r.isError)!] as any;
     }
   }
 
-  return results;
+  return results as any;
 }

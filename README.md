@@ -338,40 +338,79 @@ if (isSuccess(result)) {
 
 ### Running Concurrent Operations (`concurrent`)
 
-Execute multiple operations with controlled concurrency and type safety:
+Execute multiple operations with controlled concurrency and precise type inference:
 
 ```typescript
-interface User { id: number; name: string; }
-interface Post { id: number; title: string; }
-interface Stats { visits: number; }
+// Example with typed functions
+interface User { name: string; id: number }
+interface Post { title: string; content: string }
 
-const results = await concurrent([
-  async () => {
-    const response = await fetch('/api/users');
-    return response.json() as User[];
-  },
-  async () => {
-    const response = await fetch('/api/posts');
-    return response.json() as Post[];
-  },
-  async () => {
-    const response = await fetch('/api/stats');
-    return response.json() as Stats;
-  }
-], {
-  maxConcurrent: 3,
-  timeout: 5000
+const getUser = async (): Promise<User> => ({ name: 'bob', id: 1 });
+const getPost = async (): Promise<Post> => ({ 
+  title: 'Hello',
+  content: 'World'
 });
 
-// TypeScript knows the exact types of each result
-const [usersResult, postsResult, statsResult] = results;
+// TypeScript infers exact return types
+const results = await concurrent([
+  getUser,
+  getPost
+] as const);
 
-return {
-  users: isSuccess(usersResult) ? usersResult.data : [], // User[]
-  posts: isSuccess(postsResult) ? postsResult.data : [], // Post[]
-  stats: isSuccess(statsResult) ? statsResult.data : null, // Stats
-};
+const [userResult, postResult] = results;
+
+if (!userResult.isError) {
+  const user = userResult.data; // TypeScript knows this is User
+  console.log(user.name, user.id);
+}
+
+if (!postResult.isError) {
+  const post = postResult.data; // TypeScript knows this is Post
+  console.log(post.title, post.content);
+}
+
+// Example with literal types
+const literalResults = await concurrent([
+  async () => 42 as const,
+  async () => 'hello' as const,
+  async () => ({ status: 'ok' as const })
+] as const);
+
+const [numResult, strResult, objResult] = literalResults;
+
+if (!numResult.isError) {
+  const num = numResult.data; // Type is exactly 42
+  console.log(num); // TypeScript knows this is exactly 42
+}
+
+if (!strResult.isError) {
+  const str = strResult.data; // Type is exactly 'hello'
+  console.log(str); // TypeScript knows this is exactly 'hello'
+}
+
+if (!objResult.isError) {
+  const obj = objResult.data; // Type is exactly { status: 'ok' }
+  console.log(obj.status); // TypeScript knows this is exactly 'ok'
+}
+
+// With concurrency control
+const results = await concurrent(
+  [getUser, getPost],
+  {
+    timeout: 5000, // 5 second timeout
+    maxConcurrent: 2, // Run at most 2 operations at once
+    stopOnError: false // Continue on error
+  }
+);
 ```
+
+The `concurrent` function provides:
+- Precise type inference for each operation's return type
+- Support for both typed functions and literal types
+- Controlled concurrency with `maxConcurrent`
+- Timeout handling for long-running operations
+- Error handling with `stopOnError` option
+- Type-safe access to results through destructuring
 
 ## Configuration Types
 

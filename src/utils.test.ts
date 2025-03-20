@@ -454,6 +454,36 @@ describe('Utility Functions', () => {
       expect(plusOneResults.every((r) => !r.isError)).toBe(true);
     });
 
+    it('should handle operations with different return types', async () => {
+      // Type-only test helper
+      function expectType<T>(_actual: T) {} // eslint-disable-line @typescript-eslint/no-unused-vars
+
+      const results = await concurrent([
+        async () => 42 as const,
+        async () => 'hello' as const
+      ] as const);
+
+      const [numResult, strResult] = results;
+
+      // Verify number result
+      expect(numResult.isError).toBe(false);
+      if (!numResult.isError) {
+        const num = numResult.data;
+        expect(num).toBe(42);
+        // Type-only verification
+        expectType<42>(num);
+      }
+
+      // Verify string result
+      expect(strResult.isError).toBe(false);
+      if (!strResult.isError) {
+        const str = strResult.data;
+        expect(str).toBe('hello');
+        // Type-only verification
+        expectType<'hello'>(str);
+      }
+    });
+
     it('should handle timeout with specific error message', async () => {
       const timeoutDuration = 10;
       const operations = [() => delay(timeoutDuration * 10)];
@@ -467,6 +497,39 @@ describe('Utility Functions', () => {
       expect(result.isError).toBe(true);
       if (result.isError) {
         expect(result.error.message).toBe(`Operation timed out after ${timeoutDuration}ms`);
+      }
+    });
+
+    it('should handle typed async functions', async () => {
+      // Define some types
+      type User = { name: string };
+      type Post = { title: string };
+      
+      // Create typed async functions
+      const getUser = async (): Promise<User> => ({ name: 'bob' });
+      const getPost = async (): Promise<Post> => ({ title: 'Hello' });
+
+      const results = await concurrent([
+        getUser,
+        getPost
+      ] as const);
+
+      const [userResult, postResult] = results;
+
+      // Verify user result type and data
+      expect(userResult.isError).toBe(false);
+      if (!userResult.isError) {
+        // TypeScript should know this is User
+        const user: User = userResult.data;
+        expect(user.name).toBe('bob');
+      }
+
+      // Verify post result type and data
+      expect(postResult.isError).toBe(false);
+      if (!postResult.isError) {
+        // TypeScript should know this is Post
+        const post: Post = postResult.data;
+        expect(post.title).toBe('Hello');
       }
     });
   });
