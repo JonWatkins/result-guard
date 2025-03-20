@@ -1,0 +1,58 @@
+{
+  "name": "result-guard",
+  "version": "1.0.0",
+  "description": "Type-safe error handling with discriminated unions and type guards for TypeScript",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/result-guard.js",
+      "require": "./dist/result-guard.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "main": "./dist/result-guard.cjs",
+  "module": "./dist/result-guard.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && tsc --emitDeclarationOnly",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "coverage": "vitest run --coverage",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "lint": "prettier --check \"src/**/*.ts\"",
+    "prepare": "npm run build",
+    "test:mutation": "stryker run"
+  },
+  "keywords": [
+    "typescript",
+    "error-handling",
+    "type-safe",
+    "discriminated-union",
+    "type-guard",
+    "result-type",
+    "functional",
+    "promise",
+    "async"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@stryker-mutator/core": "^8.2.6",
+    "@stryker-mutator/typescript-checker": "^8.2.6",
+    "@stryker-mutator/vitest-runner": "^8.2.6",
+    "@vitest/coverage-v8": "^1.6.1",
+    "@vitest/ui": "^1.6.1",
+    "prettier": "^3.2.5",
+    "typescript": "^5.3.3",
+    "vite": "^5.4.14",
+    "vite-plugin-dts": "^3.9.1",
+    "vitest": "^1.6.1"
+  }
+}
