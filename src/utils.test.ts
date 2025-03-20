@@ -5,7 +5,7 @@ import { isSuccess, isFailure } from './types';
 
 describe('Utility Functions', () => {
   // Helper function to create a delay
-  const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+  const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
   describe('withEvents', () => {
     let emitter: EventEmitter;
@@ -64,15 +64,11 @@ describe('Utility Functions', () => {
       let cleanupCalled = false;
       const error = new Error('Event error');
 
-      const promise = withEvents(
-        emitter,
-        () => delay(10),
-        {
-          cleanup: () => {
-            cleanupCalled = true;
-          }
-        }
-      );
+      const promise = withEvents(emitter, () => delay(10), {
+        cleanup: () => {
+          cleanupCalled = true;
+        },
+      });
 
       setTimeout(() => emitter.emit('error', error), 1);
       const result = await promise;
@@ -84,12 +80,10 @@ describe('Utility Functions', () => {
 
     it('should handle timeout with specific error message', async () => {
       const timeoutDuration = 10;
-      
-      const result = await withEvents(
-        emitter,
-        () => delay(timeoutDuration * 2),
-        { timeout: timeoutDuration }
-      );
+
+      const result = await withEvents(emitter, () => delay(timeoutDuration * 2), {
+        timeout: timeoutDuration,
+      });
 
       expect(result.isError).toBe(true);
       if (result.isError) {
@@ -174,7 +168,7 @@ describe('Utility Functions', () => {
         return: async () => {
           throw new Error('Failed to close iterator');
           return { done: true, value: undefined };
-        }
+        },
       };
 
       const result = await withIterator(iterator);
@@ -188,7 +182,7 @@ describe('Utility Functions', () => {
         next: async () => {
           throw error;
         },
-        return: async () => ({ done: true, value: undefined })
+        return: async () => ({ done: true, value: undefined }),
       };
 
       const result = await withIterator(iterator);
@@ -205,7 +199,7 @@ describe('Utility Functions', () => {
         },
         return: async () => {
           throw cleanupError;
-        }
+        },
       };
 
       const result = await withIterator(iterator);
@@ -220,7 +214,7 @@ describe('Utility Functions', () => {
         return: async () => {
           cleanupCalled = true;
           return { done: true, value: undefined };
-        }
+        },
       };
 
       const result = await withIterator(iterator);
@@ -239,7 +233,7 @@ describe('Utility Functions', () => {
             return { done: false, value: values[index++] };
           }
           return { done: true, value: undefined };
-        }
+        },
       };
 
       const result = await withIterator(iterator, {
@@ -248,7 +242,7 @@ describe('Utility Functions', () => {
           itemsProcessed++;
           expect(item).toBe(values[itemsProcessed - 1]);
           return true;
-        }
+        },
       });
 
       expect(result.isError).toBe(false);
@@ -267,14 +261,14 @@ describe('Utility Functions', () => {
             return { done: false, value: values[index++] };
           }
           return { done: true, value: undefined };
-        }
+        },
       };
 
       const result = await withIterator(iterator, {
         onItem: (item) => {
           itemsProcessed++;
           return item < 3; // Stop when we hit 3
-        }
+        },
       });
 
       expect(result.isError).toBe(false);
@@ -312,7 +306,7 @@ describe('Utility Functions', () => {
           const timeoutId = setTimeout(() => resolve('success'), 10);
           return () => clearTimeout(timeoutId);
         },
-        { timeout: 5 }
+        { timeout: 5 },
       );
 
       expect(isFailure(result)).toBe(true);
@@ -410,8 +404,10 @@ describe('Utility Functions', () => {
       const error = new Error('Operation failed');
       const operations = [
         async () => 'first',
-        async () => { throw error; },
-        async () => 'third'
+        async () => {
+          throw error;
+        },
+        async () => 'third',
       ];
 
       const results = await concurrent(operations, { stopOnError: true });
@@ -424,13 +420,15 @@ describe('Utility Functions', () => {
       const error = new Error('Operation failed');
       const operations = [
         async () => 'first',
-        async () => { throw error; },
-        async () => 'third'
+        async () => {
+          throw error;
+        },
+        async () => 'third',
       ];
 
-      const results = await concurrent(operations, { 
+      const results = await concurrent(operations, {
         maxConcurrent: 1,
-        stopOnError: true
+        stopOnError: true,
       });
       expect(results).toHaveLength(1);
       expect(results[0].isError).toBe(true);
@@ -438,36 +436,30 @@ describe('Utility Functions', () => {
     });
 
     it('should handle maxConcurrent edge cases', async () => {
-      const operations = [
-        async () => 'first',
-        async () => 'second',
-        async () => 'third'
-      ];
+      const operations = [async () => 'first', async () => 'second', async () => 'third'];
 
       // Test with maxConcurrent = Infinity
       const infinityResults = await concurrent(operations, { maxConcurrent: Infinity });
       expect(infinityResults).toHaveLength(3);
-      expect(infinityResults.every(r => !r.isError)).toBe(true);
+      expect(infinityResults.every((r) => !r.isError)).toBe(true);
 
       // Test with maxConcurrent = exact length
       const exactResults = await concurrent(operations, { maxConcurrent: operations.length });
       expect(exactResults).toHaveLength(3);
-      expect(exactResults.every(r => !r.isError)).toBe(true);
+      expect(exactResults.every((r) => !r.isError)).toBe(true);
 
       // Test with maxConcurrent = length + 1
       const plusOneResults = await concurrent(operations, { maxConcurrent: operations.length + 1 });
       expect(plusOneResults).toHaveLength(3);
-      expect(plusOneResults.every(r => !r.isError)).toBe(true);
+      expect(plusOneResults.every((r) => !r.isError)).toBe(true);
     });
 
     it('should handle timeout with specific error message', async () => {
       const timeoutDuration = 10;
-      const operations = [
-        () => delay(timeoutDuration * 10)
-      ];
+      const operations = [() => delay(timeoutDuration * 10)];
 
       const results = await concurrent(operations, {
-        timeout: timeoutDuration
+        timeout: timeoutDuration,
       });
 
       expect(results).toHaveLength(1);

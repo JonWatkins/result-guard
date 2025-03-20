@@ -18,7 +18,7 @@ describe('error utilities', () => {
       const result = toError(null);
       expect(result).toBeInstanceOf(Error);
       expect(result.message).toBe('Non-error value thrown: null');
-      
+
       // Verify the specific null case is handled
       const otherResult = toError(undefined);
       expect(result.message).not.toBe(otherResult.message);
@@ -28,7 +28,7 @@ describe('error utilities', () => {
       const result = toError(undefined);
       expect(result).toBeInstanceOf(Error);
       expect(result.message).toBe('Non-error value thrown: undefined');
-      
+
       // Verify the specific undefined case is handled
       const otherResult = toError(null);
       expect(result.message).not.toBe(otherResult.message);
@@ -53,7 +53,7 @@ describe('error utilities', () => {
         nullError.message,
         undefinedError.message,
         numberError.message,
-        booleanError.message
+        booleanError.message,
       ]);
       expect(messages.size).toBe(4);
     });
@@ -67,7 +67,7 @@ describe('error utilities', () => {
         error: null,
         isError: false,
       });
-      
+
       // Verify type guard properties
       expect(result.isError).toBe(false);
       expect(result.error).toBeNull();
@@ -84,11 +84,11 @@ describe('error utilities', () => {
         error,
         isError: true,
       });
-      
+
       // Verify type guard properties
       expect(result.isError).toBe(true);
       expect(result.error).toBe(error);
       expect(result.data).toBeNull();
     });
   });
-}); 
+});

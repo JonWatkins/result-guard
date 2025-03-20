@@ -317,7 +317,9 @@ export async function concurrent<T, E = Error>(
   const executeOperation = (op: () => Promise<T>) => {
     return tryCatch<T, E>(async () => {
       const promise = op();
-      return timeout ? await raceWithTimeout(promise, timeout, 'Operation timed out') : await promise;
+      return timeout
+        ? await raceWithTimeout(promise, timeout, 'Operation timed out')
+        : await promise;
     });
   };
 

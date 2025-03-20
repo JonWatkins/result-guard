@@ -14,7 +14,8 @@ export default {
     "src/**/*.ts",
     "!src/**/*.test.ts",
     "!src/**/*.spec.ts",
-    "!src/types.ts"
+    "!src/types.ts",
+    "!stryker.config.mjs"
   ],
   vitest: {
     configFile: "vite.config.ts",
