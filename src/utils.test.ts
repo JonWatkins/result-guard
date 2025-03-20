@@ -4,7 +4,6 @@ import { withEvents, withIterator, withCallbacks, concurrent } from './utils';
 import { isSuccess, isFailure } from './types';
 
 describe('Utility Functions', () => {
-  // Helper function to create a delay
   const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
   describe('withEvents', () => {
@@ -136,7 +135,6 @@ describe('Utility Functions', () => {
       }
     });
 
-    // Edge case tests
     it('should handle empty iterators', async () => {
       async function* generator() {
         if (false) yield 1; // Never yields
@@ -315,7 +313,6 @@ describe('Utility Functions', () => {
       }
     });
 
-    // Edge case tests
     it('should handle setup function throwing', async () => {
       const result = await withCallbacks(() => {
         throw new Error('setup error');
@@ -379,7 +376,6 @@ describe('Utility Functions', () => {
       expect(maxConcurrent).toBe(1);
     });
 
-    // Edge case tests
     it('should handle non-function operations', async () => {
       const operations = [async () => 'valid', 'invalid' as any];
 
@@ -438,48 +434,40 @@ describe('Utility Functions', () => {
     it('should handle maxConcurrent edge cases', async () => {
       const operations = [async () => 'first', async () => 'second', async () => 'third'];
 
-      // Test with maxConcurrent = Infinity
       const infinityResults = await concurrent(operations, { maxConcurrent: Infinity });
       expect(infinityResults).toHaveLength(3);
       expect(infinityResults.every((r) => !r.isError)).toBe(true);
 
-      // Test with maxConcurrent = exact length
       const exactResults = await concurrent(operations, { maxConcurrent: operations.length });
       expect(exactResults).toHaveLength(3);
       expect(exactResults.every((r) => !r.isError)).toBe(true);
 
-      // Test with maxConcurrent = length + 1
       const plusOneResults = await concurrent(operations, { maxConcurrent: operations.length + 1 });
       expect(plusOneResults).toHaveLength(3);
       expect(plusOneResults.every((r) => !r.isError)).toBe(true);
     });
 
     it('should handle operations with different return types', async () => {
-      // Type-only test helper
       function expectType<T>(_actual: T) {} // eslint-disable-line @typescript-eslint/no-unused-vars
 
       const results = await concurrent([
         async () => 42 as const,
-        async () => 'hello' as const
+        async () => 'hello' as const,
       ] as const);
 
       const [numResult, strResult] = results;
 
-      // Verify number result
       expect(numResult.isError).toBe(false);
       if (!numResult.isError) {
         const num = numResult.data;
         expect(num).toBe(42);
-        // Type-only verification
         expectType<42>(num);
       }
 
-      // Verify string result
       expect(strResult.isError).toBe(false);
       if (!strResult.isError) {
         const str = strResult.data;
         expect(str).toBe('hello');
-        // Type-only verification
         expectType<'hello'>(str);
       }
     });
@@ -501,33 +489,24 @@ describe('Utility Functions', () => {
     });
 
     it('should handle typed async functions', async () => {
-      // Define some types
       type User = { name: string };
       type Post = { title: string };
-      
-      // Create typed async functions
+
       const getUser = async (): Promise<User> => ({ name: 'bob' });
       const getPost = async (): Promise<Post> => ({ title: 'Hello' });
 
-      const results = await concurrent([
-        getUser,
-        getPost
-      ] as const);
+      const results = await concurrent([getUser, getPost] as const);
 
       const [userResult, postResult] = results;
 
-      // Verify user result type and data
       expect(userResult.isError).toBe(false);
       if (!userResult.isError) {
-        // TypeScript should know this is User
         const user: User = userResult.data;
         expect(user.name).toBe('bob');
       }
-
-      // Verify post result type and data
+            
       expect(postResult.isError).toBe(false);
       if (!postResult.isError) {
-        // TypeScript should know this is Post
         const post: Post = postResult.data;
         expect(post.title).toBe('Hello');
       }

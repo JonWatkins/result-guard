@@ -24,7 +24,6 @@ function createTimeoutPromise(timeout: number, message: string): Promise<never> 
     const timeoutId = setTimeout(() => {
       reject(new Error(`${message} after ${timeout}ms`));
     }, timeout);
-    // Ensure timeout is cleared if promise is cancelled
     (Promise.prototype as any).cancel = () => clearTimeout(timeoutId);
   });
 }
@@ -111,7 +110,6 @@ export function withEvents<T, E = Error>(
     };
 
     try {
-      // Create a promise that rejects on error event
       const errorPromise = new Promise<never>((_, reject) => {
         emitter.once(errorEvent, reject);
       });
@@ -119,7 +117,6 @@ export function withEvents<T, E = Error>(
       const operationPromise = operation();
       const promises = [operationPromise, errorPromise];
 
-      // Add timeout if specified
       if (timeout) {
         promises.push(createTimeoutPromise(timeout, 'Operation timed out'));
       }
@@ -288,51 +285,51 @@ export function withCallbacks<T, E = Error>(
  * // Example with typed functions
  * interface User { name: string; id: number }
  * interface Post { title: string; content: string }
- * 
+ *
  * const getUser = async (): Promise<User> => ({ name: 'bob', id: 1 });
- * const getPost = async (): Promise<Post> => ({ 
+ * const getPost = async (): Promise<Post> => ({
  *   title: 'Hello',
  *   content: 'World'
  * });
- * 
+ *
  * const results = await concurrent([
  *   getUser,
  *   getPost
  * ] as const);
- * 
+ *
  * const [userResult, postResult] = results;
- * 
+ *
  * if (!userResult.isError) {
  *   const user = userResult.data; // TypeScript knows this is User
  *   console.log(user.name, user.id);
  * }
- * 
+ *
  * if (!postResult.isError) {
  *   const post = postResult.data; // TypeScript knows this is Post
  *   console.log(post.title, post.content);
  * }
- * 
+ *
  * // Example with literal types
  * const literalResults = await concurrent([
  *   async () => 42 as const,
  *   async () => 'hello' as const,
  *   async () => ({ status: 'ok' as const })
  * ] as const);
- * 
+ *
  * const [numResult, strResult, objResult] = literalResults;
- * 
+ *
  * if (!numResult.isError) {
  *   const num = numResult.data; // Type is exactly 42
  * }
- * 
+ *
  * if (!strResult.isError) {
  *   const str = strResult.data; // Type is exactly 'hello'
  * }
- * 
+ *
  * if (!objResult.isError) {
  *   const obj = objResult.data; // Type is { status: 'ok' }
  * }
- * 
+ *
  * // With concurrency options
  * const results = await concurrent(
  *   [getUser, getPost],
@@ -359,7 +356,6 @@ export async function concurrent<Ops extends readonly (() => Promise<any>)[]>(
     });
   };
 
-  // If no concurrency limit or single operation, process all at once
   if (maxConcurrent === Infinity || operations.length <= maxConcurrent) {
     const results = await Promise.all(operations.map(executeOperation));
 
@@ -370,7 +366,6 @@ export async function concurrent<Ops extends readonly (() => Promise<any>)[]>(
     return results as any;
   }
 
-  // Process in chunks for limited concurrency
   const results: Result<any, Error>[] = [];
   for (let i = 0; i < operations.length; i += maxConcurrent) {
     const chunk = operations.slice(i, i + maxConcurrent);
