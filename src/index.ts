@@ -1,8 +1,10 @@
 import { Result } from './types';
 import { createSuccess, createFailure, handleError } from './error';
 import { handlePromise, safeResolve } from './promise';
+import { concurrent, withEvents, withIterator, withCallbacks } from './utils';
 
 export * from './types';
+export { concurrent, withEvents, withIterator, withCallbacks };
 
 /**
  * result-guard: Type-safe error handling with discriminated unions and type guards.
