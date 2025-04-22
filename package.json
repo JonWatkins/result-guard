@@ -1,6 +1,6 @@
 {
   "name": "result-guard",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Type-safe error handling with discriminated unions and type guards for TypeScript",
   "type": "module",
   "exports": {
