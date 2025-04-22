@@ -6,7 +6,6 @@ import {
   IteratorOptions,
   ConcurrentOptions,
   CallbackHandlers,
-  isSuccess,
   isFailure,
 } from './types';
 import { tryCatch } from './index';

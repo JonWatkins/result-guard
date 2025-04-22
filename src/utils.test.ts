@@ -699,7 +699,7 @@ describe('Utility Functions', () => {
     it('should short-circuit on errors', async () => {
       const operations = [
         (num: number) => tryCatch(() => num * 2),
-        (num: number) => tryCatch(() => { throw new Error('Operation failed'); }),
+        (_num: number) => tryCatch(() => { throw new Error('Operation failed'); }),
         (num: number) => tryCatch(() => num.toString())
       ];
 
