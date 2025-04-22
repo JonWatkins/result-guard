@@ -6,6 +6,8 @@ import {
   IteratorOptions,
   ConcurrentOptions,
   CallbackHandlers,
+  isSuccess,
+  isFailure,
 } from './types';
 import { tryCatch } from './index';
 import { EventEmitter } from 'events';
@@ -379,4 +381,64 @@ export async function concurrent<Ops extends readonly (() => Promise<any>)[]>(
   }
 
   return results as any;
+}
+
+/**
+ * Composes a series of functions that work with Results, allowing you to pipe
+ * the success value of one operation into the next operation in the chain.
+ * Each function in the chain receives the data from the previous operation's result.
+ * If any operation fails, the chain short-circuits and returns the error result.
+ *
+ * @template T The initial input type
+ * @template R The final result type
+ * @template E The error type (defaults to Error)
+ * @param initialValue The initial value to start the pipeline
+ * @param operations Array of functions to execute in sequence
+ * @returns A Result containing either the final operation's result or the first error encountered
+ *
+ * @example
+ * ```typescript
+ * // Example with a series of operations
+ * const result = await pipe(
+ *   "user123",
+ *   [
+ *     // Get user by ID
+ *     (userId) => tryCatch(() => fetchUser(userId)),
+ *     
+ *     // Get user's posts
+ *     (user) => tryCatch(() => fetchPosts(user.id)),
+ *     
+ *     // Process posts
+ *     (posts) => tryCatch(() => processPosts(posts))
+ *   ]
+ * );
+ *
+ * if (isSuccess(result)) {
+ *   console.log('Processed posts:', result.data);
+ * } else {
+ *   console.error('Failed:', result.error.message);
+ * }
+ * ```
+ */
+export async function pipe<T, R = T, E = Error>(
+  initialValue: T,
+  operations: Array<(value: any) => Result<any, E> | Promise<Result<any, E>>>
+): Promise<Result<R, E>> {
+  let currentValue: any = initialValue;
+  
+  for (const operation of operations) {
+    const result = await Promise.resolve(operation(currentValue));
+    
+    if (isFailure(result)) {
+      return result as Result<R, E>;
+    }
+    
+    currentValue = result.data;
+  }
+  
+  return {
+    data: currentValue as R,
+    error: null,
+    isError: false
+  };
 }

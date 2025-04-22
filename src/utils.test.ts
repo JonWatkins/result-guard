@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { EventEmitter } from 'events';
-import { withEvents, withIterator, withCallbacks, concurrent } from './utils';
+import { withEvents, withIterator, withCallbacks, concurrent, pipe } from './utils';
 import { isSuccess, isFailure } from './types';
+import { tryCatch } from './index';
 
 describe('Utility Functions', () => {
   const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -679,5 +680,132 @@ describe('Utility Functions', () => {
         callback: 1
       });
     }, 10000);
+  });
+
+  describe('pipe', () => {
+    it('should pipe operations successfully', async () => {
+      const result = await pipe(5, [
+        (num) => tryCatch(() => num * 2),
+        (num) => tryCatch(() => num + 10),
+        (num) => tryCatch(() => num.toString())
+      ]);
+
+      expect(isSuccess(result)).toBe(true);
+      if (isSuccess(result)) {
+        expect(result.data).toBe('20');
+      }
+    });
+
+    it('should short-circuit on errors', async () => {
+      const operations = [
+        (num: number) => tryCatch(() => num * 2),
+        (num: number) => tryCatch(() => { throw new Error('Operation failed'); }),
+        (num: number) => tryCatch(() => num.toString())
+      ];
+
+      const onSuccessSpy = vi.fn();
+      const result = await pipe(5, operations);
+
+      expect(isFailure(result)).toBe(true);
+      if (isFailure(result)) {
+        expect(result.error.message).toBe('Operation failed');
+      }
+      expect(onSuccessSpy).not.toHaveBeenCalled();
+    });
+
+    it('should handle composition with other utilities', async () => {
+      const emitter = new EventEmitter();
+      
+      // Setup iterator
+      async function* numberGenerator() {
+        for (let i = 1; i <= 3; i++) {
+          yield i;
+          await delay(1);
+        }
+      }
+
+      const result = await pipe('start', [
+        // First operation - simple transformation
+        (input: string) => tryCatch(() => `${input} -> Step 1`),
+        
+        // Second operation - use withEvents
+        (input: string) => tryCatch(async () => {
+          const eventResult = await withEvents(
+            emitter,
+            () => new Promise<string>(resolve => {
+              emitter.once('data', (data) => resolve(`${input} -> ${data}`));
+              setTimeout(() => emitter.emit('data', 'event data'), 1);
+            })
+          );
+          
+          return isSuccess(eventResult) ? eventResult.data : Promise.reject(eventResult.error);
+        }),
+        
+        // Third operation - use withIterator
+        (input: string) => tryCatch(async () => {
+          const iteratorResult = await withIterator(numberGenerator());
+          
+          return isSuccess(iteratorResult)
+            ? `${input} -> [${iteratorResult.data.join(', ')}]`
+            : Promise.reject(iteratorResult.error);
+        })
+      ]);
+
+      expect(isSuccess(result)).toBe(true);
+      if (isSuccess(result)) {
+        expect(result.data).toBe('start -> Step 1 -> event data -> [1, 2, 3]');
+      }
+    });
+
+    it('should handle complex data transformations', async () => {
+      interface User {
+        id: number;
+        name: string;
+      }
+      
+      interface Post {
+        id: number;
+        title: string;
+        userId: number;
+      }
+      
+      // Mock data
+      const users: User[] = [
+        { id: 1, name: 'Alice' },
+        { id: 2, name: 'Bob' }
+      ];
+      
+      const posts: Post[] = [
+        { id: 101, title: 'Alice Post 1', userId: 1 },
+        { id: 102, title: 'Alice Post 2', userId: 1 },
+        { id: 201, title: 'Bob Post 1', userId: 2 }
+      ];
+      
+      const result = await pipe('Alice', [
+        // Get user by name
+        (name: string) => tryCatch(() => {
+          const user = users.find(u => u.name === name);
+          if (!user) throw new Error(`User not found: ${name}`);
+          return user;
+        }),
+        
+        // Get posts by user ID
+        (user: User) => tryCatch(() => {
+          const userPosts = posts.filter(p => p.userId === user.id);
+          if (userPosts.length === 0) throw new Error(`No posts found for user: ${user.name}`);
+          return userPosts;
+        }),
+        
+        // Format post titles
+        (userPosts: Post[]) => tryCatch(() => {
+          return userPosts.map(post => post.title);
+        })
+      ]);
+      
+      expect(isSuccess(result)).toBe(true);
+      if (isSuccess(result)) {
+        expect(result.data).toEqual(['Alice Post 1', 'Alice Post 2']);
+      }
+    });
   });
 });

@@ -603,6 +603,77 @@ The key benefits of this approach are:
 4. **Concurrency Control**: Ability to run operations in parallel with limits
 5. **Flexibility**: Mix and match different utilities as needed
 
+The `concurrent` function provides:
+- Precise type inference for each operation's return type
+- Support for both typed functions and literal types
+- Controlled concurrency with `maxConcurrent`
+- Timeout handling for long-running operations
+- Error handling with `stopOnError` option
+- Type-safe access to results through destructuring
+
+### Piping Operations (`pipe`)
+
+Compose operations in a sequential chain, passing results from one operation to the next:
+
+```typescript
+import { pipe, tryCatch } from 'result-guard';
+
+async function fetchUserData(userId: string) {
+  // Chain operations in a pipeline
+  const result = await pipe(
+    userId,
+    [
+      // First, get the user
+      (id) => tryCatch(() => {
+        return fetch(`/api/users/${id}`)
+          .then(res => {
+            if (!res.ok) throw new Error(`Failed to fetch user: ${res.status}`);
+            return res.json();
+          });
+      }),
+      
+      // Then, get their posts using the user data
+      (user) => tryCatch(() => {
+        return fetch(`/api/users/${user.id}/posts`)
+          .then(res => {
+            if (!res.ok) throw new Error(`Failed to fetch posts: ${res.status}`);
+            return res.json();
+          });
+      }),
+      
+      // Finally, process the posts
+      (posts) => tryCatch(() => {
+        return posts.map(post => ({
+          title: post.title,
+          excerpt: post.body.substring(0, 100) + '...'
+        }));
+      })
+    ]
+  );
+
+  if (result.isError) {
+    console.error("Error in pipeline:", result.error.message);
+    return null;
+  }
+  
+  return result.data;
+}
+```
+
+The pipe function:
+- Takes an initial value and an array of operations
+- Passes each successful result as input to the next operation
+- Short-circuits on the first error
+- Supports both synchronous and asynchronous operations
+- Preserves full type safety throughout the chain
+- Provides a clean, functional programming approach to sequential operations
+
+This pattern is ideal for:
+- Sequential API calls that depend on previous results
+- Data transformations that need to happen in a specific order
+- Complex validation chains
+- Building up results through a series of transformations
+
 ## Configuration Types
 
 ### Common Options
