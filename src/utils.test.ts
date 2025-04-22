@@ -511,5 +511,173 @@ describe('Utility Functions', () => {
         expect(post.title).toBe('Hello');
       }
     });
+
+    it('should handle composition with other utilities', async () => {
+      const emitter1 = new EventEmitter();
+      const emitter2 = new EventEmitter();
+      
+      async function* numberGenerator() {
+        for (let i = 1; i <= 3; i++) {
+          yield i;
+          await delay(1);
+        }
+      }
+
+      const results = await concurrent([
+        async () => {
+          const result = await withEvents(
+            emitter1,
+            () => new Promise<string>(resolve => {
+              emitter1.once('data', resolve);
+              setTimeout(() => emitter1.emit('data', 'event1 data'), 1);
+            })
+          );
+          return result.isError ? Promise.reject(result.error) : result.data;
+        },
+
+        async () => {
+          const result = await withEvents(
+            emitter2,
+            () => new Promise<string>(resolve => {
+              emitter2.once('data', resolve);
+              setTimeout(() => emitter2.emit('data', 'event2 data'), 1);
+            })
+          );
+          return result.isError ? Promise.reject(result.error) : result.data;
+        },
+
+        async () => {
+          const result = await withIterator(numberGenerator());
+          return result.isError ? Promise.reject(result.error) : result.data;
+        },
+
+        async () => {
+          const result = await withCallbacks<string>(({ resolve }) => {
+            const timeoutId = setTimeout(() => resolve('callback data'), 1);
+            return () => clearTimeout(timeoutId);
+          });
+          return result.isError ? Promise.reject(result.error) : result.data;
+        }
+      ] as const);
+
+      const [event1Result, event2Result, iteratorResult, callbackResult] = results;
+
+      expect(event1Result.isError).toBe(false);
+      if (!event1Result.isError) {
+        expect(event1Result.data).toBe('event1 data');
+      }
+
+      expect(event2Result.isError).toBe(false);
+      if (!event2Result.isError) {
+        expect(event2Result.data).toBe('event2 data');
+      }
+
+      expect(iteratorResult.isError).toBe(false);
+      if (!iteratorResult.isError) {
+        expect(iteratorResult.data).toEqual([1, 2, 3]);
+      }
+
+      expect(callbackResult.isError).toBe(false);
+      if (!callbackResult.isError) {
+        expect(callbackResult.data).toBe('callback data');
+      }
+    }, 10000);
+
+    it('should handle errors in composed utilities', async () => {
+      const emitter = new EventEmitter();
+      
+      const results = await concurrent([
+        async () => {
+          const result = await withEvents(
+            emitter,
+            () => new Promise<string>((_, reject) => {
+              emitter.once('error', reject);
+              setTimeout(() => emitter.emit('error', new Error('event error')), 1);
+            })
+          );
+          return result.isError ? Promise.reject(result.error) : result.data;
+        },
+
+        async () => {
+          const result = await withIterator(async function* () {
+            yield 1;
+            await delay(1);
+            throw new Error('iterator error');
+          }());
+          return result.isError ? Promise.reject(result.error) : result.data;
+        },
+
+        async () => {
+          const result = await withCallbacks<string>(({ reject }) => {
+            const timeoutId = setTimeout(() => reject(new Error('callback error')), 1);
+            return () => clearTimeout(timeoutId);
+          });
+          return result.isError ? Promise.reject(result.error) : result.data;
+        }
+      ] as const);
+
+      expect(results.every(r => r.isError)).toBe(true);
+
+      const errors = results.map(r => r.isError ? r.error.message : null);
+      expect(errors).toContain('event error');
+      expect(errors).toContain('iterator error');
+      expect(errors).toContain('callback error');
+    }, 10000);
+
+    it('should handle cleanup in composed utilities', async () => {
+      const cleanupCalls = {
+        event: 0,
+        iterator: 0,
+        callback: 0
+      };
+
+      const emitter = new EventEmitter();
+      
+      await concurrent([
+        async () => {
+          const result = await withEvents(
+            emitter,
+            () => Promise.resolve('event data'),
+            {
+              cleanup: () => {
+                cleanupCalls.event++;
+              }
+            }
+          );
+          return result.isError ? Promise.reject(result.error) : result.data;
+        },
+
+        async () => {
+          const result = await withIterator((async function* () {
+            try {
+              yield 1;
+            } finally {
+              cleanupCalls.iterator++;
+            }
+          })());
+          return result.isError ? Promise.reject(result.error) : result.data;
+        },
+
+        async () => {
+          const result = await withCallbacks<string>(({ resolve }) => {
+            const timeoutId = setTimeout(() => resolve('callback data'), 1);
+            return () => {
+              clearTimeout(timeoutId);
+              cleanupCalls.callback++;
+            };
+          });
+          return result.isError ? Promise.reject(result.error) : result.data;
+        }
+      ] as const);
+
+      // Give a small delay for cleanup to complete
+      await delay(5);
+
+      expect(cleanupCalls).toEqual({
+        event: 1,
+        iterator: 1,
+        callback: 1
+      });
+    }, 10000);
   });
 });

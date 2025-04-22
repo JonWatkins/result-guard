@@ -412,6 +412,197 @@ The `concurrent` function provides:
 - Error handling with `stopOnError` option
 - Type-safe access to results through destructuring
 
+### Composing Utilities
+
+The utility functions can be composed together using the `concurrent` function. Here's how to combine multiple utilities:
+
+```typescript
+import { concurrent, withEvents, withIterator, withCallbacks } from 'result-guard';
+import { EventEmitter } from 'events';
+
+// Example combining multiple utilities
+async function processMultipleOperations() {
+  // Create event emitters for testing
+  const emitter1 = new EventEmitter();
+  const emitter2 = new EventEmitter();
+
+  // Define an async iterator
+  async function* numberGenerator() {
+    for (let i = 1; i <= 3; i++) {
+      yield i;
+      await new Promise(resolve => setTimeout(resolve, 1));
+    }
+  }
+
+  // Run multiple operations concurrently
+  const results = await concurrent([
+    // Process first event emitter
+    async () => {
+      const result = await withEvents(
+        emitter1,
+        () => new Promise<string>(resolve => {
+          emitter1.once('data', resolve);
+          setTimeout(() => emitter1.emit('data', 'event1 data'), 1);
+        })
+      );
+      return result.isError ? Promise.reject(result.error) : result.data;
+    },
+
+    // Process second event emitter
+    async () => {
+      const result = await withEvents(
+        emitter2,
+        () => new Promise<string>(resolve => {
+          emitter2.once('data', resolve);
+          setTimeout(() => emitter2.emit('data', 'event2 data'), 1);
+        })
+      );
+      return result.isError ? Promise.reject(result.error) : result.data;
+    },
+
+    // Process an async iterator
+    async () => {
+      const result = await withIterator(numberGenerator());
+      return result.isError ? Promise.reject(result.error) : result.data;
+    },
+
+    // Handle callbacks
+    async () => {
+      const result = await withCallbacks<string>(({ resolve }) => {
+        const timeoutId = setTimeout(() => resolve('callback data'), 1);
+        return () => clearTimeout(timeoutId);
+      });
+      return result.isError ? Promise.reject(result.error) : result.data;
+    }
+  ] as const);
+
+  // Destructure and handle results
+  const [event1Result, event2Result, iteratorResult, callbackResult] = results;
+
+  return {
+    event1: !event1Result.isError ? event1Result.data : null,
+    event2: !event2Result.isError ? event2Result.data : null,
+    numbers: !iteratorResult.isError ? iteratorResult.data : [],
+    callbackData: !callbackResult.isError ? callbackResult.data : null,
+    errors: results
+      .filter(r => r.isError)
+      .map(r => r.error.message)
+  };
+}
+
+// Error handling example
+async function handleErrors() {
+  const emitter = new EventEmitter();
+  
+  const results = await concurrent([
+    // Event emitter that errors
+    async () => {
+      const result = await withEvents(
+        emitter,
+        () => new Promise<string>((_, reject) => {
+          emitter.once('error', reject);
+          setTimeout(() => emitter.emit('error', new Error('event error')), 1);
+        })
+      );
+      return result.isError ? Promise.reject(result.error) : result.data;
+    },
+
+    // Iterator that errors
+    async () => {
+      const result = await withIterator(async function* () {
+        yield 1;
+        throw new Error('iterator error');
+      }());
+      return result.isError ? Promise.reject(result.error) : result.data;
+    },
+
+    // Callback that errors
+    async () => {
+      const result = await withCallbacks<string>(({ reject }) => {
+        const timeoutId = setTimeout(() => reject(new Error('callback error')), 1);
+        return () => clearTimeout(timeoutId);
+      });
+      return result.isError ? Promise.reject(result.error) : result.data;
+    }
+  ] as const);
+
+  // All operations should have failed
+  const errors = results
+    .filter(r => r.isError)
+    .map(r => r.error.message);
+
+  return errors; // ['event error', 'iterator error', 'callback error']
+}
+
+// Cleanup example
+async function handleCleanup() {
+  const cleanupCalls = {
+    event: 0,
+    iterator: 0,
+    callback: 0
+  };
+
+  const emitter = new EventEmitter();
+  
+  await concurrent([
+    // Event with cleanup
+    async () => {
+      const result = await withEvents(
+        emitter,
+        () => Promise.resolve('event data'),
+        {
+          cleanup: () => {
+            cleanupCalls.event++;
+          }
+        }
+      );
+      return result.isError ? Promise.reject(result.error) : result.data;
+    },
+
+    // Iterator with cleanup
+    async () => {
+      const result = await withIterator((async function* () {
+        try {
+          yield 1;
+        } finally {
+          cleanupCalls.iterator++;
+        }
+      })());
+      return result.isError ? Promise.reject(result.error) : result.data;
+    },
+
+    // Callback with cleanup
+    async () => {
+      const result = await withCallbacks<string>(({ resolve }) => {
+        const timeoutId = setTimeout(() => resolve('callback data'), 1);
+        return () => {
+          clearTimeout(timeoutId);
+          cleanupCalls.callback++;
+        };
+      });
+      return result.isError ? Promise.reject(result.error) : result.data;
+    }
+  ] as const);
+
+  return cleanupCalls; // { event: 1, iterator: 1, callback: 1 }
+}
+```
+
+This composition pattern provides:
+- Type-safe composition of multiple utility functions
+- Proper error propagation across all utilities
+- Independent cleanup handling for each operation
+- Concurrent execution with controlled concurrency
+- Consistent error handling patterns
+- Resource cleanup in all cases (success, error, timeout)
+
+The key benefits of this approach are:
+1. **Type Safety**: Full TypeScript support with proper type inference
+2. **Error Handling**: Unified error handling across different types of operations
+3. **Resource Management**: Guaranteed cleanup of resources
+4. **Concurrency Control**: Ability to run operations in parallel with limits
+5. **Flexibility**: Mix and match different utilities as needed
+
 ## Configuration Types
 
 ### Common Options
