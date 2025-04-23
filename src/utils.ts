@@ -403,10 +403,10 @@ export async function concurrent<Ops extends readonly (() => Promise<any>)[]>(
  *   [
  *     // Get user by ID
  *     (userId) => tryCatch(() => fetchUser(userId)),
- *     
+ *
  *     // Get user's posts
  *     (user) => tryCatch(() => fetchPosts(user.id)),
- *     
+ *
  *     // Process posts
  *     (posts) => tryCatch(() => processPosts(posts))
  *   ]
@@ -421,23 +421,23 @@ export async function concurrent<Ops extends readonly (() => Promise<any>)[]>(
  */
 export async function pipe<T, R = T, E = Error>(
   initialValue: T,
-  operations: Array<(value: any) => Result<any, E> | Promise<Result<any, E>>>
+  operations: Array<(value: any) => Result<any, E> | Promise<Result<any, E>>>,
 ): Promise<Result<R, E>> {
   let currentValue: any = initialValue;
-  
+
   for (const operation of operations) {
     const result = await Promise.resolve(operation(currentValue));
-    
+
     if (isFailure(result)) {
       return result as Result<R, E>;
     }
-    
+
     currentValue = result.data;
   }
-  
+
   return {
     data: currentValue as R,
     error: null,
-    isError: false
+    isError: false,
   };
 }

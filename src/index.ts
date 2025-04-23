@@ -4,7 +4,8 @@ import { handlePromise, safeResolve } from './promise';
 import { concurrent, withEvents, withIterator, withCallbacks, pipe } from './utils';
 
 export * from './types';
-export { concurrent, withEvents, withIterator, withCallbacks, pipe };
+
+export { concurrent, withEvents, withIterator, withCallbacks, pipe, createSuccess, createFailure };
 
 /**
  * result-guard: Type-safe error handling with discriminated unions and type guards.

@@ -505,7 +505,7 @@ describe('Utility Functions', () => {
         const user: User = userResult.data;
         expect(user.name).toBe('bob');
       }
-            
+
       expect(postResult.isError).toBe(false);
       if (!postResult.isError) {
         const post: Post = postResult.data;
@@ -516,7 +516,7 @@ describe('Utility Functions', () => {
     it('should handle composition with other utilities', async () => {
       const emitter1 = new EventEmitter();
       const emitter2 = new EventEmitter();
-      
+
       async function* numberGenerator() {
         for (let i = 1; i <= 3; i++) {
           yield i;
@@ -528,10 +528,11 @@ describe('Utility Functions', () => {
         async () => {
           const result = await withEvents(
             emitter1,
-            () => new Promise<string>(resolve => {
-              emitter1.once('data', resolve);
-              setTimeout(() => emitter1.emit('data', 'event1 data'), 1);
-            })
+            () =>
+              new Promise<string>((resolve) => {
+                emitter1.once('data', resolve);
+                setTimeout(() => emitter1.emit('data', 'event1 data'), 1);
+              }),
           );
           return result.isError ? Promise.reject(result.error) : result.data;
         },
@@ -539,10 +540,11 @@ describe('Utility Functions', () => {
         async () => {
           const result = await withEvents(
             emitter2,
-            () => new Promise<string>(resolve => {
-              emitter2.once('data', resolve);
-              setTimeout(() => emitter2.emit('data', 'event2 data'), 1);
-            })
+            () =>
+              new Promise<string>((resolve) => {
+                emitter2.once('data', resolve);
+                setTimeout(() => emitter2.emit('data', 'event2 data'), 1);
+              }),
           );
           return result.isError ? Promise.reject(result.error) : result.data;
         },
@@ -558,7 +560,7 @@ describe('Utility Functions', () => {
             return () => clearTimeout(timeoutId);
           });
           return result.isError ? Promise.reject(result.error) : result.data;
-        }
+        },
       ] as const);
 
       const [event1Result, event2Result, iteratorResult, callbackResult] = results;
@@ -586,25 +588,28 @@ describe('Utility Functions', () => {
 
     it('should handle errors in composed utilities', async () => {
       const emitter = new EventEmitter();
-      
+
       const results = await concurrent([
         async () => {
           const result = await withEvents(
             emitter,
-            () => new Promise<string>((_, reject) => {
-              emitter.once('error', reject);
-              setTimeout(() => emitter.emit('error', new Error('event error')), 1);
-            })
+            () =>
+              new Promise<string>((_, reject) => {
+                emitter.once('error', reject);
+                setTimeout(() => emitter.emit('error', new Error('event error')), 1);
+              }),
           );
           return result.isError ? Promise.reject(result.error) : result.data;
         },
 
         async () => {
-          const result = await withIterator(async function* () {
-            yield 1;
-            await delay(1);
-            throw new Error('iterator error');
-          }());
+          const result = await withIterator(
+            (async function* () {
+              yield 1;
+              await delay(1);
+              throw new Error('iterator error');
+            })(),
+          );
           return result.isError ? Promise.reject(result.error) : result.data;
         },
 
@@ -614,12 +619,12 @@ describe('Utility Functions', () => {
             return () => clearTimeout(timeoutId);
           });
           return result.isError ? Promise.reject(result.error) : result.data;
-        }
+        },
       ] as const);
 
-      expect(results.every(r => r.isError)).toBe(true);
+      expect(results.every((r) => r.isError)).toBe(true);
 
-      const errors = results.map(r => r.isError ? r.error.message : null);
+      const errors = results.map((r) => (r.isError ? r.error.message : null));
       expect(errors).toContain('event error');
       expect(errors).toContain('iterator error');
       expect(errors).toContain('callback error');
@@ -629,33 +634,31 @@ describe('Utility Functions', () => {
       const cleanupCalls = {
         event: 0,
         iterator: 0,
-        callback: 0
+        callback: 0,
       };
 
       const emitter = new EventEmitter();
-      
+
       await concurrent([
         async () => {
-          const result = await withEvents(
-            emitter,
-            () => Promise.resolve('event data'),
-            {
-              cleanup: () => {
-                cleanupCalls.event++;
-              }
-            }
-          );
+          const result = await withEvents(emitter, () => Promise.resolve('event data'), {
+            cleanup: () => {
+              cleanupCalls.event++;
+            },
+          });
           return result.isError ? Promise.reject(result.error) : result.data;
         },
 
         async () => {
-          const result = await withIterator((async function* () {
-            try {
-              yield 1;
-            } finally {
-              cleanupCalls.iterator++;
-            }
-          })());
+          const result = await withIterator(
+            (async function* () {
+              try {
+                yield 1;
+              } finally {
+                cleanupCalls.iterator++;
+              }
+            })(),
+          );
           return result.isError ? Promise.reject(result.error) : result.data;
         },
 
@@ -668,7 +671,7 @@ describe('Utility Functions', () => {
             };
           });
           return result.isError ? Promise.reject(result.error) : result.data;
-        }
+        },
       ] as const);
 
       // Give a small delay for cleanup to complete
@@ -677,7 +680,7 @@ describe('Utility Functions', () => {
       expect(cleanupCalls).toEqual({
         event: 1,
         iterator: 1,
-        callback: 1
+        callback: 1,
       });
     }, 10000);
   });
@@ -687,7 +690,7 @@ describe('Utility Functions', () => {
       const result = await pipe(5, [
         (num) => tryCatch(() => num * 2),
         (num) => tryCatch(() => num + 10),
-        (num) => tryCatch(() => num.toString())
+        (num) => tryCatch(() => num.toString()),
       ]);
 
       expect(isSuccess(result)).toBe(true);
@@ -699,8 +702,11 @@ describe('Utility Functions', () => {
     it('should short-circuit on errors', async () => {
       const operations = [
         (num: number) => tryCatch(() => num * 2),
-        (_num: number) => tryCatch(() => { throw new Error('Operation failed'); }),
-        (num: number) => tryCatch(() => num.toString())
+        (_num: number) =>
+          tryCatch(() => {
+            throw new Error('Operation failed');
+          }),
+        (num: number) => tryCatch(() => num.toString()),
       ];
 
       const onSuccessSpy = vi.fn();
@@ -715,7 +721,7 @@ describe('Utility Functions', () => {
 
     it('should handle composition with other utilities', async () => {
       const emitter = new EventEmitter();
-      
+
       // Setup iterator
       async function* numberGenerator() {
         for (let i = 1; i <= 3; i++) {
@@ -727,28 +733,31 @@ describe('Utility Functions', () => {
       const result = await pipe('start', [
         // First operation - simple transformation
         (input: string) => tryCatch(() => `${input} -> Step 1`),
-        
+
         // Second operation - use withEvents
-        (input: string) => tryCatch(async () => {
-          const eventResult = await withEvents(
-            emitter,
-            () => new Promise<string>(resolve => {
-              emitter.once('data', (data) => resolve(`${input} -> ${data}`));
-              setTimeout(() => emitter.emit('data', 'event data'), 1);
-            })
-          );
-          
-          return isSuccess(eventResult) ? eventResult.data : Promise.reject(eventResult.error);
-        }),
-        
+        (input: string) =>
+          tryCatch(async () => {
+            const eventResult = await withEvents(
+              emitter,
+              () =>
+                new Promise<string>((resolve) => {
+                  emitter.once('data', (data) => resolve(`${input} -> ${data}`));
+                  setTimeout(() => emitter.emit('data', 'event data'), 1);
+                }),
+            );
+
+            return isSuccess(eventResult) ? eventResult.data : Promise.reject(eventResult.error);
+          }),
+
         // Third operation - use withIterator
-        (input: string) => tryCatch(async () => {
-          const iteratorResult = await withIterator(numberGenerator());
-          
-          return isSuccess(iteratorResult)
-            ? `${input} -> [${iteratorResult.data.join(', ')}]`
-            : Promise.reject(iteratorResult.error);
-        })
+        (input: string) =>
+          tryCatch(async () => {
+            const iteratorResult = await withIterator(numberGenerator());
+
+            return isSuccess(iteratorResult)
+              ? `${input} -> [${iteratorResult.data.join(', ')}]`
+              : Promise.reject(iteratorResult.error);
+          }),
       ]);
 
       expect(isSuccess(result)).toBe(true);
@@ -762,46 +771,49 @@ describe('Utility Functions', () => {
         id: number;
         name: string;
       }
-      
+
       interface Post {
         id: number;
         title: string;
         userId: number;
       }
-      
+
       // Mock data
       const users: User[] = [
         { id: 1, name: 'Alice' },
-        { id: 2, name: 'Bob' }
+        { id: 2, name: 'Bob' },
       ];
-      
+
       const posts: Post[] = [
         { id: 101, title: 'Alice Post 1', userId: 1 },
         { id: 102, title: 'Alice Post 2', userId: 1 },
-        { id: 201, title: 'Bob Post 1', userId: 2 }
+        { id: 201, title: 'Bob Post 1', userId: 2 },
       ];
-      
+
       const result = await pipe('Alice', [
         // Get user by name
-        (name: string) => tryCatch(() => {
-          const user = users.find(u => u.name === name);
-          if (!user) throw new Error(`User not found: ${name}`);
-          return user;
-        }),
-        
+        (name: string) =>
+          tryCatch(() => {
+            const user = users.find((u) => u.name === name);
+            if (!user) throw new Error(`User not found: ${name}`);
+            return user;
+          }),
+
         // Get posts by user ID
-        (user: User) => tryCatch(() => {
-          const userPosts = posts.filter(p => p.userId === user.id);
-          if (userPosts.length === 0) throw new Error(`No posts found for user: ${user.name}`);
-          return userPosts;
-        }),
-        
+        (user: User) =>
+          tryCatch(() => {
+            const userPosts = posts.filter((p) => p.userId === user.id);
+            if (userPosts.length === 0) throw new Error(`No posts found for user: ${user.name}`);
+            return userPosts;
+          }),
+
         // Format post titles
-        (userPosts: Post[]) => tryCatch(() => {
-          return userPosts.map(post => post.title);
-        })
+        (userPosts: Post[]) =>
+          tryCatch(() => {
+            return userPosts.map((post) => post.title);
+          }),
       ]);
-      
+
       expect(isSuccess(result)).toBe(true);
       if (isSuccess(result)) {
         expect(result.data).toEqual(['Alice Post 1', 'Alice Post 2']);
